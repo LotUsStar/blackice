@@ -4,7 +4,6 @@ import cv2
 from PIL import Image
 from skimage import feature
 from scipy import ndimage as ndi
-from skimage.util import random_noise
 
 # -------------------------------------------
 # input parameters
@@ -200,20 +199,41 @@ img2 = Image.fromarray(laplacian)
 #img2.show()
 
 	# Compute the Canny filter for two values of sigma
-edges1 = feature.canny(value)
 edges2 = feature.canny(value, sigma=3)
+edges1 = edges2
+
+from scipy import ndimage as ndi
+edges2 = ndi.binary_fill_holes(edges2)
+edges3 = edges2
+
+from skimage import morphology
+edges2 = morphology.remove_small_objects(edges2)
+edges4 = edges2
+#edges2 = edges2.astype(int)
+
+from skimage.measure import label, regionprops
+
+l = label(edges2)
+edges2 = (l==np.bincount(l.ravel())[1:].argmax()+1).astype(int)
+
 
 	# display results
-fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(8, 3))
+fig, ax = plt.subplots(nrows=1, ncols=5, figsize=(8, 3))
 
 ax[0].imshow(value, cmap='gray')
 ax[0].set_title('noisy image', fontsize=20)
 
 ax[1].imshow(edges1, cmap='gray')
-ax[1].set_title(r'Canny filter, $\sigma=1$', fontsize=20)
+ax[1].set_title(r'Canny filter, $\sigma=3$', fontsize=20)
 
-ax[2].imshow(edges2, cmap='gray')
-ax[2].set_title(r'Canny filter, $\sigma=3$', fontsize=20)
+ax[2].imshow(edges3, cmap='gray')
+ax[2].set_title(r'Binary fill the hole', fontsize=20)
+
+ax[3].imshow(edges4, cmap='gray')
+ax[3].set_title(r'Remove small objects', fontsize=20)
+
+ax[4].imshow(edges2, cmap='gray')
+ax[4].set_title(r'Select Largest Object', fontsize=20)
 
 for a in ax:
     a.axis('off')
