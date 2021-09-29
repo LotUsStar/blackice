@@ -1,5 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
+from PIL import Image
+from skimage import feature
+from scipy import ndimage as ndi
+from skimage.util import random_noise
 
 # -------------------------------------------
 # input parameters
@@ -98,44 +103,46 @@ intensity_noise = intensity_noise_amp * np.random.randn(ve_len, ho_len)
 # 하늘, 배경, 도로, 블랙아이스 그리기
 
 	# 하늘
-t1 = plt.Polygon([[hor_min-hor_interval, 90], [hor_max+hor_interval, 90], [hor_max+hor_interval, 135-0.5*ver_min], [hor_min-hor_interval, 135-0.5*ver_min]], color='lightskyblue', zorder=0)
-plt.gca().add_patch(t1)
+#t1 = plt.Polygon([[hor_min-hor_interval, 90], [hor_max+hor_interval, 90], [hor_max+hor_interval, 135-0.5*ver_min], [hor_min-hor_interval, 135-0.5*ver_min]], color='lightskyblue', zorder=0)
+#plt.gca().add_patch(t1)
 
 	# 배경
-t2 = plt.Polygon([[hor_min-hor_interval, ver_min-ver_interval], [hor_max+hor_interval, ver_min-ver_interval], [hor_max+hor_interval, 90], [hor_min-hor_interval, 90]], color='limegreen', zorder=0)
-plt.gca().add_patch(t2)
+#t2 = plt.Polygon([[hor_min-hor_interval, ver_min-ver_interval], [hor_max+hor_interval, ver_min-ver_interval], [hor_max+hor_interval, 90], [hor_min-hor_interval, 90]], color='limegreen', zorder=0)
+#plt.gca().add_patch(t2)
 
 	# 도로
-road_horangle_min = np.ones(ve_len);
-road_horangle_max = np.ones(ve_len);
+#road_horangle_min = np.ones(ve_len);
+#road_horangle_max = np.ones(ve_len);
 
-for i in range(0, ve_len):
-        road_horangle_min[i] = np.arcsin((road_xmin - camera_x)/camera_height/np.tan(ve[i]))
-        road_horangle_max[i] = np.arcsin((road_xmax - camera_x)/camera_height/np.tan(ve[i]))
+#for i in range(0, ve_len):
+#        road_horangle_min[i] = np.arcsin((road_xmin - camera_x)/camera_height/np.tan(ve[i]))
+#        road_horangle_max[i] = np.arcsin((road_xmax - camera_x)/camera_height/np.tan(ve[i]))
 
-for i in range(0, ve_len-1):
-	t3 = plt.Polygon([[road_horangle_min[i]*180/np.pi, ve_deg[i]], [road_horangle_max[i]*180/np.pi, ve_deg[i]], [road_horangle_max[i+1]*180/np.pi, ve_deg[i+1]], [road_horangle_min[i+1]*180/np.pi, ve_deg[i+1]]], color='gray', zorder=1)
-	plt.gca().add_patch(t3)
+#for i in range(0, ve_len-1):
+#	t3 = plt.Polygon([[road_horangle_min[i]*180/np.pi, ve_deg[i]], [road_horangle_max[i]*180/np.pi, ve_deg[i]], [road_horangle_max[i+1]*180/np.pi, ve_deg[i+1]], [road_horangle_min[i+1]*180/np.pi, ve_deg[i+1]]], color='gray', zorder=1)
+#	plt.gca().add_patch(t3)
 
-t4 = plt.Polygon([[road_horangle_min[ve_len-1]*180/np.pi, ver_max], [road_horangle_max[ve_len-1]*180/np.pi, ver_max], [0, 90]], color='gray', zorder=1)
-plt.gca().add_patch(t4)
+#t4 = plt.Polygon([[road_horangle_min[ve_len-1]*180/np.pi, ver_max], [road_horangle_max[ve_len-1]*180/np.pi, ver_max], [0, 90]], color='gray', zorder=1)
+#plt.gca().add_patch(t4)
 
 	# 블랙아이스
-AA = [blkice_xmin, blkice_xmax, blkice_xmax, blkice_xmin]
-BB = [blkice_ymin, blkice_ymin, blkice_ymax, blkice_ymax]
-CC = np.zeros(4);
-DD = np.zeros(4);
+#AA = [blkice_xmin, blkice_xmax, blkice_xmax, blkice_xmin]
+#BB = [blkice_ymin, blkice_ymin, blkice_ymax, blkice_ymax]
+#CC = np.zeros(4);
+#DD = np.zeros(4);
 
-for i in range(0, 4):
-	CC[i] = np.arctan(AA[i]/BB[i])*180/np.pi
-	DD[i] = np.arctan(np.sqrt(AA[i]**2+BB[i]**2)/camera_height)*180/np.pi
+#for i in range(0, 4):
+#	CC[i] = np.arctan(AA[i]/BB[i])*180/np.pi
+#	DD[i] = np.arctan(np.sqrt(AA[i]**2+BB[i]**2)/camera_height)*180/np.pi
 
-t5 = plt.Polygon([[CC[0], DD[0]], [CC[1], DD[1]], [CC[2], DD[2]], [CC[3], DD[3]]], color='black', zorder=2)
-plt.gca().add_patch(t5)
+#t5 = plt.Polygon([[CC[0], DD[0]], [CC[1], DD[1]], [CC[2], DD[2]], [CC[3], DD[3]]], color='black', zorder=2)
+#plt.gca().add_patch(t5)
 
 # ------------------------------------------------------------
 # 반사율 계산
 # d : 거리, I : intensity, value : 반사율
+# 센서 정확도는 블랙아이스 안쪽/바깥쪽 각각 변수가 있으며
+# 	정확도를 만족하지 않으면 reflection_rate값으로 픽셀 처리됨
 
 d = np.zeros((ve_len, ho_len))
 I = np.zeros((ve_len, ho_len))
@@ -162,8 +169,8 @@ for i in range(0, ve_len):
 		else:
 			I[i][j] = reflection_rate * np.cos(ve[i]) / d[i][j]**2 + intensity_noise[i][j]
 			value[i][j] = I[i][j] * d[i][j]**3 / camera_height
-			#if tmp > accuracy_road:
-			value[i][j] = 1
+			if tmp > accuracy_road:
+				value[i][j] = reflection_rate
 		
 		if value[i][j] > 1:
 			value[i][j] = 1
@@ -172,36 +179,51 @@ for i in range(0, ve_len):
 
 # -------------------------------------------------------------
 # plot
-# x,y축 범위, 라벨링
+# 
 
-import cv2
-from PIL import Image
-from skimage import feature
-
+	# Gaussian Blur
 kernel1d = cv2.getGaussianKernel(gaussian_blur,1.0363)
 kernel2d = np.outer(kernel1d,kernel1d.transpose())
-#print(kernel2d)
 
+	# 상하반전, 0~1을 0~255로 보정, Gaussian 필터 적용
 value = np.flip(value, 0)
 value = 255 * value
 value = cv2.filter2D(value, -1, kernel2d)
 
+	# 행렬을 이미지로 변환
 img1 = Image.fromarray(value)
-img1.show()
+#img1.show()
 
+	# Laplacian 필터 적용
 laplacian = cv2.Laplacian(value, cv2.CV_8U,ksize=5)
 img2 = Image.fromarray(laplacian)
-img2.show()
+#img2.show()
 
-#orig_im = cv2.imread('asdf.png')
-#edges = cv2.Canny(orig_im, 100, 200)
+	# Compute the Canny filter for two values of sigma
+edges1 = feature.canny(value)
+edges2 = feature.canny(value, sigma=3)
 
-edge1 = feature.canny(value, sigma=3)
-imshow(edge1)
+	# display results
+fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(8, 3))
 
-plt.xlim(hor_min-hor_interval, hor_max+hor_interval)
-plt.ylim(ver_min, 135-0.5*ver_min)
-plt.xlabel('Horizontal Angle (Degree)')
-plt.ylabel('Vertival Angle (Degree)')
+ax[0].imshow(value, cmap='gray')
+ax[0].set_title('noisy image', fontsize=20)
+
+ax[1].imshow(edges1, cmap='gray')
+ax[1].set_title(r'Canny filter, $\sigma=1$', fontsize=20)
+
+ax[2].imshow(edges2, cmap='gray')
+ax[2].set_title(r'Canny filter, $\sigma=3$', fontsize=20)
+
+for a in ax:
+    a.axis('off')
+
+fig.tight_layout()
 plt.show()
+
+#plt.xlim(hor_min-hor_interval, hor_max+hor_interval)
+#plt.ylim(ver_min, 135-0.5*ver_min)
+#plt.xlabel('Horizontal Angle (Degree)')
+#plt.ylabel('Vertival Angle (Degree)')
+#plt.show()
 
