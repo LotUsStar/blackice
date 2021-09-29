@@ -52,6 +52,12 @@ f.readline()
 reflection_rate = float(f.readline().strip());
 f.readline()
 ice_reduce = float(f.readline().strip());
+f.readline()
+accuracy_ice = float(f.readline().strip());
+f.readline()
+accuracy_road = float(f.readline().strip());
+f.readline()
+gaussian_blur = int(f.readline().strip());
 
 f.close()
 
@@ -138,35 +144,64 @@ value = np.zeros((ve_len, ho_len))
 for i in range(0, ve_len):
 	for j in range(0, ho_len):
 		d[i][j] = camera_height / np.cos(ve[i]) + range_noise[i][j]
+		
+
+		tmp = np.random.rand(1)
+
 		if A[i][j] > road_xmin and A[i][j] < road_xmax:
 			if B[i][j] > blkice_ymin and B[i][j] < blkice_ymax and A[i][j] > blkice_xmin and A[i][j] < blkice_xmax:
 				I[i][j] = ice_reduce * reflection_rate * np.cos(ve[i]) / d[i][j]**2 + intensity_noise[i][j]
 				value[i][j] = I[i][j] * d[i][j]**3 / camera_height
+				if tmp > accuracy_ice:
+					value[i][j] = reflection_rate
 			else:
 				I[i][j] = reflection_rate * np.cos(ve[i]) / d[i][j]**2 + intensity_noise[i][j]
 				value[i][j] = I[i][j] * d[i][j]**3 / camera_height
+				if tmp > accuracy_road:
+					value[i][j] = reflection_rate
 		else:
 			I[i][j] = reflection_rate * np.cos(ve[i]) / d[i][j]**2 + intensity_noise[i][j]
 			value[i][j] = I[i][j] * d[i][j]**3 / camera_height
+			#if tmp > accuracy_road:
+			value[i][j] = 1
 		
 		if value[i][j] > 1:
 			value[i][j] = 1
 		if value[i][j] < 0:
-			value[i][j] = 0
-
-		plt.scatter(ho_deg[j], ve_deg[i], color=[value[i][j], value[i][j], value[i][j]], zorder=3, s=5)
+			value[i][j] = 0	
 
 # -------------------------------------------------------------
 # plot
 # x,y축 범위, 라벨링
 
+import cv2
 from PIL import Image
+from skimage import feature
 
-low_im = Image.fromarray(I)
-low_im.show()
+kernel1d = cv2.getGaussianKernel(gaussian_blur,1.0363)
+kernel2d = np.outer(kernel1d,kernel1d.transpose())
+#print(kernel2d)
+
+value = np.flip(value, 0)
+value = 255 * value
+value = cv2.filter2D(value, -1, kernel2d)
+
+img1 = Image.fromarray(value)
+img1.show()
+
+laplacian = cv2.Laplacian(value, cv2.CV_8U,ksize=5)
+img2 = Image.fromarray(laplacian)
+img2.show()
+
+#orig_im = cv2.imread('asdf.png')
+#edges = cv2.Canny(orig_im, 100, 200)
+
+edge1 = feature.canny(value, sigma=3)
+imshow(edge1)
 
 plt.xlim(hor_min-hor_interval, hor_max+hor_interval)
 plt.ylim(ver_min, 135-0.5*ver_min)
 plt.xlabel('Horizontal Angle (Degree)')
 plt.ylabel('Vertival Angle (Degree)')
 plt.show()
+
